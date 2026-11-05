@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{PROJECT}} · 交接看板</title>
+
+  <style>
+    :root {
+      --bg: #0f1210;
+      --panel: #171b17;
+      --panel-2: #1c211b;
+      --line: #262b25;
+      --line-soft: #1f241e;
+      --ink: #e7e4da;
+      --muted: #8a9189;
+      --faint: #5a6157;
+      --accent: #ffb454;
+      --done: #7bd88f;
+      --doing: #ffb454;
+      --frozen: #8ea0c4;
+      --risk: #ff6b6b;
+
+      --mono: "Cascadia Code", "JetBrains Mono", "Consolas", "SF Mono", "Courier New", monospace;
+      --display: "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+      --sans: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", "Segoe UI", sans-serif;
+
+      --radius: 14px;
+      --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      background-image: radial-gradient(circle, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
+      background-size: 26px 26px;
+      color: var(--ink);
+      font-family: var(--sans);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    .wrap { max-width: 1240px; margin: 0 auto; padding: 0 28px 80px; }
+    code {
+      font-family: var(--mono); font-size: 0.9em;
+      background: var(--panel-2); border: 1px solid var(--line-soft);
+      padding: 1px 6px; border-radius: 5px; color: var(--muted);
+    }
+
+    /* ── 顶部栏 ─────────────────────────────────────────────── */
+    header {
+      position: sticky; top: 0; z-index: 20;
+      backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+      background: rgba(15, 18, 16, 0.72);
+      border-bottom: 1px solid var(--line-soft);
+    }
+    .topbar {
+      max-width: 1240px; margin: 0 auto; padding: 16px 28px;
+      display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    }
+    .brand { display: flex; align-items: center; gap: 14px; min-width: 0; }
+    .brand-mark {
+      width: 38px; height: 38px; flex: 0 0 auto;
+      display: grid; place-items: center;
+      border: 1px solid var(--line); border-radius: 10px;
+      background: linear-gradient(160deg, var(--panel-2), var(--panel));
+      color: var(--accent); font-family: var(--mono); font-weight: 700; font-size: 16px;
+    }
+    .brand-name { font-family: var(--display); font-weight: 700; font-size: 18px; line-height: 1.2; }
+    .brand-tag { color: var(--muted); font-size: 12.5px; }
+    .topbar-meta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-family: var(--mono); font-size: 12px; color: var(--muted); }
+    .chip { border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 4px 12px; color: var(--muted); white-space: nowrap; }
+    .chip b { color: var(--ink); font-weight: 600; }
+
+    /* ── 锚点导航 ───────────────────────────────────────────── */
+    html { scroll-behavior: smooth; }
+    .handover, .board, .lower .card { scroll-margin-top: 96px; }
+    .nav { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .nav a {
+      font-family: var(--mono); font-size: 12px; color: var(--muted); text-decoration: none;
+      border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 4px 12px;
+      transition: color 0.12s ease, border-color 0.12s ease;
+    }
+    .nav a:hover { color: var(--ink); border-color: var(--accent); }
+    .btn-more {
+      width: 100%; margin-top: 8px; font-family: var(--sans); font-size: 12.5px; color: var(--muted);
+      background: none; border: 1px dashed var(--line); border-radius: 9px; padding: 8px; cursor: pointer;
+      transition: color 0.12s ease, border-color 0.12s ease;
+    }
+    .btn-more:hover { color: var(--ink); border-color: var(--accent); }
+    .entry.is-hidden { display: none; }
+
+    .beacon { display: inline-flex; align-items: center; gap: 9px; border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 4px 14px 4px 10px; font-size: 12.5px; color: var(--ink); }
+    .beacon-dot { position: relative; width: 9px; height: 9px; border-radius: 50%; background: var(--doing); box-shadow: 0 0 0 0 rgba(255,180,84,0.55); animation: pulse 2s infinite; }
+    .beacon-dot.idle { background: var(--faint); animation: none; }
+    .beacon-dot.done { background: var(--done); box-shadow: 0 0 0 0 rgba(123,216,143,0.55); }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(255,180,84,0.5); }
+      70% { box-shadow: 0 0 0 9px rgba(255,180,84,0); }
+      100% { box-shadow: 0 0 0 0 rgba(255,180,84,0); }
+    }
+
+    .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+    .section { padding: 26px; }
+    .eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: 3px; color: var(--accent); text-transform: uppercase; }
+    .sec-title { font-family: var(--display); font-weight: 600; font-size: 20px; margin: 5px 0 0; }
+
+    /* ── 交接面板 ───────────────────────────────────────────── */
+    .handover { margin-top: 24px; }
+    .handover-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
+    .btn-copy {
+      flex: 0 0 auto;
+      font-family: var(--sans); font-size: 13.5px; font-weight: 600;
+      color: #14160f; background: var(--accent);
+      border: none; border-radius: 9px; padding: 10px 18px; cursor: pointer;
+      transition: transform 0.12s ease, filter 0.12s ease;
+    }
+    .btn-copy:hover { filter: brightness(1.08); transform: translateY(-1px); }
+    .btn-copy:active { transform: translateY(0); }
+    .btn-copy.copied { background: var(--done); }
+
+    .ho-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .ho-cell { border: 1px solid var(--line); background: var(--panel-2); border-radius: 11px; padding: 14px 16px; min-width: 0; }
+    .ho-cell.wide { grid-column: 1 / -1; }
+    .ho-label { font-family: var(--mono); font-size: 11px; letter-spacing: 1px; color: var(--faint); margin-bottom: 7px; display: flex; align-items: center; gap: 7px; }
+    .ho-label .dot { width: 7px; height: 7px; border-radius: 50%; }
+    .ho-objective { font-family: var(--display); font-weight: 600; font-size: 19px; line-height: 1.45; }
+    .ho-next { font-size: 15px; font-weight: 600; color: var(--accent); }
+    .ho-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+    .ho-list li { position: relative; padding-left: 20px; font-size: 13.5px; }
+    .ho-list li::before { content: ""; position: absolute; left: 2px; top: 9px; width: 6px; height: 6px; border-radius: 50%; background: var(--faint); }
+    .ho-order li { counter-increment: none; padding-left: 26px; }
+    .ho-order li::before {
+      content: counter(x) ""; counter-increment: x; position: absolute; left: 0; top: 1px;
+      width: auto; height: auto; border-radius: 0; background: transparent;
+      font-family: var(--mono); font-size: 12px; color: var(--accent);
+    }
+    .ho-order { counter-reset: x; }
+    .ho-order li::before { content: counter(x); counter-increment: x; }
+    .ho-done li::before { background: var(--done); }
+    .ho-frozen li::before { background: var(--frozen); }
+    .chips { display: flex; flex-wrap: wrap; gap: 7px; }
+    .chips span {
+      font-family: var(--mono); font-size: 12px; color: var(--muted);
+      border: 1px solid var(--line); background: var(--panel); border-radius: 6px; padding: 4px 9px;
+    }
+    .ho-perm { font-size: 13.5px; color: var(--muted); }
+
+    details.preview { margin-top: 14px; }
+    details.preview summary { cursor: pointer; font-size: 12.5px; color: var(--muted); user-select: none; }
+    details.preview pre {
+      margin: 12px 0 0; padding: 16px; white-space: pre-wrap; word-break: break-word;
+      background: #0c0f0c; border: 1px solid var(--line); border-radius: 10px;
+      font-family: var(--mono); font-size: 12.5px; line-height: 1.7; color: var(--ink);
+    }
+
+    /* ── 看板 ───────────────────────────────────────────────── */
+    .board { margin-top: 18px; }
+    .board-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; align-items: start; }
+    .col { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; min-width: 0; }
+    .col-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .col-title { font-family: var(--display); font-weight: 600; font-size: 14.5px; display: flex; align-items: center; gap: 8px; }
+    .col-title .swatch { width: 9px; height: 9px; border-radius: 3px; }
+    .col-count { font-family: var(--mono); font-size: 12px; color: var(--faint); }
+    .col-stack { display: flex; flex-direction: column; gap: 10px; }
+
+    .tcard { background: var(--panel-2); border: 1px solid var(--line); border-radius: 11px; padding: 12px 13px; }
+    .tcard-top { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+    .tcard-title { flex: 1 1 auto; font-weight: 600; font-size: 13.5px; line-height: 1.4; }
+    .tcard-desc { color: var(--muted); font-size: 12.5px; line-height: 1.55; }
+    .tcard-next { margin-top: 8px; font-size: 12.5px; color: var(--accent); }
+    .tcard-next b { font-weight: 600; }
+    .tcard-meta { margin-top: 8px; display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 11px; color: var(--faint); }
+
+    .tag { font-family: var(--mono); font-size: 10.5px; padding: 2px 7px; border-radius: 5px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+    .tag.feature { color: var(--done); border-color: rgba(123,216,143,.4); }
+    .tag.fix { color: var(--risk); border-color: rgba(255,107,107,.4); }
+    .tag.docs { color: #6ea8fe; border-color: rgba(110,168,254,.4); }
+    .tag.plan { color: #c792ea; border-color: rgba(199,146,234,.4); }
+    .tag.chore { color: var(--muted); }
+
+    .col-empty { color: var(--faint); font-size: 12.5px; text-align: center; padding: 18px 0; border: 1px dashed var(--line); border-radius: 9px; }
+
+    /* ── 下部：PRD + 日志 ───────────────────────────────────── */
+    .lower { margin-top: 18px; display: grid; grid-template-columns: 1fr 1.2fr; gap: 18px; align-items: start; }
+    .prd-block { margin-bottom: 15px; }
+    .prd-block:last-child { margin-bottom: 0; }
+    .prd-block h4 { font-size: 12px; font-family: var(--mono); font-weight: 500; color: var(--faint); letter-spacing: 1px; margin: 0 0 8px; }
+    .prd-block ul { margin: 0; padding-left: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+    .prd-block li { position: relative; padding-left: 20px; font-size: 13px; }
+    .prd-block li::before { content: ""; position: absolute; left: 2px; top: 8px; width: 6px; height: 6px; border-radius: 50%; background: var(--faint); }
+    .prd-block.goals li::before { background: var(--accent); }
+    .prd-block.scopeout li::before { background: transparent; border: 1px solid var(--faint); }
+    .prd-summary { font-size: 13.5px; color: var(--ink); border-left: 2px solid var(--accent); padding-left: 14px; margin: 0 0 18px; }
+
+    .timeline { position: relative; }
+    .entry { position: relative; padding: 0 0 20px 30px; }
+    .entry:last-child { padding-bottom: 2px; }
+    .entry::before { content: ""; position: absolute; left: 6px; top: 7px; bottom: -2px; width: 1px; background: var(--line); }
+    .entry:last-child::before { display: none; }
+    .entry-dot { position: absolute; left: 0; top: 5px; width: 13px; height: 13px; border-radius: 50%; border: 3px solid var(--bg); background: var(--faint); box-shadow: 0 0 0 1px var(--line); }
+    .entry-dot.feature { background: var(--done); }
+    .entry-dot.fix { background: var(--risk); }
+    .entry-dot.docs { background: #6ea8fe; }
+    .entry-dot.plan { background: #c792ea; }
+    .entry-dot.chore { background: var(--faint); }
+    .entry-head { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+    .entry-time { font-family: var(--mono); font-size: 11.5px; color: var(--faint); }
+    .entry-title { font-weight: 600; font-size: 14px; }
+    .entry-body { color: var(--muted); font-size: 12.5px; margin-top: 4px; }
+
+    footer {
+      margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--line-soft);
+      color: var(--faint); font-size: 12px; display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+    }
+
+    .empty { color: var(--muted); font-size: 13px; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+
+    @media (max-width: 1020px) {
+      .board-grid { grid-template-columns: repeat(2, 1fr); }
+      .lower { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 640px) {
+      .wrap { padding: 0 16px 60px; }
+      .topbar { padding: 14px 16px; }
+      .ho-grid { grid-template-columns: 1fr; }
+      .board-grid { grid-template-columns: 1fr; }
+      .section { padding: 20px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      * { animation: none !important; transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="topbar">
+      <div class="brand">
+        <div class="brand-mark">◈</div>
+        <div>
+          <div class="brand-name" id="brandName">—</div>
+          <div class="brand-tag" id="brandTag"></div>
+        </div>
+      </div>
+      <div class="topbar-meta">
+        <nav class="nav" aria-label="页面导航">
+          <a href="#secHand">交接</a>
+          <a href="#secBoard">看板</a>
+          <a href="#prdSection">PRD</a>
+          <a href="#logSection">日志</a>
+        </nav>
+        <div class="beacon"><span class="beacon-dot" id="beaconDot"></span><span id="beaconText">—</span></div>
+        <span class="chip">v<b id="verNum">—</b></span>
+        <span class="chip">更新 <b id="updatedAt">—</b></span>
+      </div>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <!-- 交接面板 -->
+    <section class="card section handover" id="secHand" aria-label="交接面板">
+      <div class="handover-head">
+        <div>
+          <div class="eyebrow">HANDOFF / 交接</div>
+          <h2 class="sec-title">这次开工，先看这里</h2>
+        </div>
+        <button class="btn-copy" id="btnCopy">复制新会话开场白</button>
+      </div>
+      <div class="ho-grid" id="hoGrid"></div>
+      <details class="preview">
+        <summary>预览开场白文本</summary>
+        <pre id="openingPreview"></pre>
+      </details>
+    </section>
+
+    <!-- 看板 -->
+    <section class="card section board" id="secBoard" aria-label="任务看板">
+      <div class="sec-head" style="margin-bottom:16px;">
+        <div class="eyebrow">BOARD / 看板</div>
+        <h2 class="sec-title">任务四列</h2>
+      </div>
+      <div class="board-grid" id="boardGrid"></div>
+    </section>
+
+    <!-- PRD + 日志 -->
+    <section class="lower">
+      <div class="card section" id="prdSection">
+        <div class="sec-head" style="margin-bottom:16px;">
+          <div class="eyebrow">PRD / 需求</div>
+          <h2 class="sec-title">要做什么</h2>
+        </div>
+        <div id="prdBody"></div>
+      </div>
+      <div class="card section" id="logSection">
+        <div class="sec-head" style="margin-bottom:16px;">
+          <div class="eyebrow">LOG / 日志</div>
+          <h2 class="sec-title">开发日志</h2>
+        </div>
+        <div class="timeline" id="logBody"></div>
+      </div>
+    </section>
+
+    <footer>
+      <span>唯一事实源：<code>state.js</code> · 编辑后刷新即更新 · HANDOFF.md 由它生成</span>
+      <span id="renderAt"></span>
+    </footer>
+  </div>
+
+  <script src="state.js"></script>
+  <script>
+    (function () {
+      "use strict";
+
+      var COLORS = { todo: "#5a6157", doing: "#ffb454", frozen: "#8ea0c4", done: "#7bd88f" };
+      var COLS = [
+        { key: "todo",   label: "待办",   cls: "todo" },
+        { key: "doing",  label: "进行中", cls: "doing" },
+        { key: "frozen", label: "冻结",   cls: "frozen" },
+        { key: "done",   label: "已完成", cls: "done" }
+      ];
+      var TAGS = {
+        feature: { label: "新功能", cls: "feature" },
+        fix:     { label: "修复",   cls: "fix" },
+        docs:    { label: "文档",   cls: "docs" },
+        plan:    { label: "计划",   cls: "plan" },
+        chore:   { label: "杂项",   cls: "chore" }
+      };
+
+      function el(tag, cls, text) {
+        var e = document.createElement(tag);
+        if (cls) e.className = cls;
+        if (text != null) e.textContent = text;
+        return e;
+      }
+      function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+
+      var S = window.STATE;
+      if (!S || !S.meta) {
+        document.getElementById("brandName").textContent = "未找到数据";
+        document.getElementById("hoGrid").innerHTML = '<div class="empty">请确认 <code>state.js</code> 与 <code>board.html</code> 同目录，且定义了 <code>window.STATE</code>。</div>';
+        document.getElementById("boardGrid").innerHTML = '<div class="empty">—</div>';
+        return;
+      }
+
+      /* ── 顶部栏 ── */
+      document.getElementById("brandName").textContent = S.meta.project || "未命名项目";
+      document.getElementById("brandTag").textContent = S.meta.tagline || "";
+      document.getElementById("verNum").textContent = S.meta.version || "—";
+      document.getElementById("updatedAt").textContent = S.meta.updatedAt || "—";
+
+      var cards = [];
+      COLS.forEach(function (c) { (S.board && S.board[c.key] || []).forEach(function (t) { cards.push(t); }); });
+      var doingN = (S.board && S.board.doing || []).length;
+      var todoN = (S.board && S.board.todo || []).length;
+      var beaconDot = document.getElementById("beaconDot");
+      if (doingN) {
+        document.getElementById("beaconText").textContent = "进行中 " + doingN + " 项 · 待办 " + todoN + " 项";
+        beaconDot.className = "beacon-dot";
+      } else if (todoN) {
+        document.getElementById("beaconText").textContent = "待办 " + todoN + " 项";
+        beaconDot.className = "beacon-dot idle";
+      } else {
+        document.getElementById("beaconText").textContent = "全部完成";
+        beaconDot.className = "beacon-dot done";
+      }
+
+      /* ── 开场白文本（指针式：≤5 行，细节靠新会话读事实源恢复） ── */
+      function buildOpening() {
+        var h = S.handover || {}, m = S.meta || {};
+        var L = [];
+        L.push("继续 " + (m.project || "项目") + "（" + (m.path || "") + "）。");
+        L.push("先读 " + (h.readFirst || ["state.js"]).join("、") + "——目标/看板/日志都在里面，冲突以它为准。");
+        L.push("唯一下一步：" + (h.nextStep || "读完后向用户确认当前目标。"));
+        if ((h.frozen || []).length) L.push("冻结：" + h.frozen.join("；") + "。");
+        return L.join("\n");
+      }
+      document.getElementById("openingPreview").textContent = buildOpening();
+
+      function copyText(t) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          return navigator.clipboard.writeText(t);
+        }
+        return new Promise(function (resolve, reject) {
+          var ta = document.createElement("textarea");
+          ta.value = t; ta.style.position = "fixed"; ta.style.opacity = "0";
+          document.body.appendChild(ta); ta.focus(); ta.select();
+          try { document.execCommand("copy"); resolve(); } catch (e) { reject(e); }
+          document.body.removeChild(ta);
+        });
+      }
+      var btn = document.getElementById("btnCopy");
+      btn.addEventListener("click", function () {
+        copyText(buildOpening()).then(function () {
+          btn.textContent = "已复制 ✓";
+          btn.classList.add("copied");
+          setTimeout(function () { btn.textContent = "复制新会话开场白"; btn.classList.remove("copied"); }, 1600);
+        }, function () {
+          btn.textContent = "复制失败，请手动选文本";
+          setTimeout(function () { btn.textContent = "复制新会话开场白"; }, 2000);
+        });
+      });
+
+      /* ── 交接面板字段 ── */
+      var ho = S.handover || {}, grid = document.getElementById("hoGrid");
+      function cell(wide) {
+        var c = el("div", "ho-cell" + (wide ? " wide" : ""));
+        grid.appendChild(c); return c;
+      }
+      function label(text, color) {
+        var l = el("div", "ho-label");
+        var d = el("span", "dot"); if (color) d.style.background = color; else d.style.display = "none";
+        l.appendChild(d); l.appendChild(document.createTextNode(text));
+        return l;
+      }
+      function ul(items, cls) {
+        var u = el("ul", "ho-list " + (cls || ""));
+        (items || []).forEach(function (it) { u.appendChild(el("li", null, it)); });
+        return u;
+      }
+
+      var c1 = cell(true); c1.appendChild(label("当前唯一目标", COLORS.doing));
+      c1.appendChild(el("div", "ho-objective", ho.objective || "—"));
+
+      var c2 = cell(); c2.appendChild(label("下一步", COLORS.doing));
+      c2.appendChild(el("div", "ho-next", ho.nextStep || "—"));
+
+      var c3 = cell(); c3.appendChild(label("执行顺序"));
+      c3.appendChild(ul(ho.order, "ho-order"));
+
+      var c4 = cell(); c4.appendChild(label("明确冻结", COLORS.frozen));
+      c4.appendChild(ul(ho.frozen, "ho-frozen"));
+
+      var c5 = cell(); c5.appendChild(label("已完成 / 最后验证", COLORS.done));
+      c5.appendChild(ul(ho.done, "ho-done"));
+
+      var c6 = cell(); c6.appendChild(label("权限边界"));
+      c6.appendChild(el("div", "ho-perm", ho.permission || "—"));
+
+      var c7 = cell(true); c7.appendChild(label("先读（权威入口）"));
+      var chips = el("div", "chips");
+      (ho.readFirst || []).forEach(function (f) { chips.appendChild(el("span", null, f)); });
+      c7.appendChild(chips);
+
+      /* ── 看板 ── */
+      var boardGrid = document.getElementById("boardGrid");
+      COLS.forEach(function (col) {
+        var items = (S.board && S.board[col.key]) || [];
+        var c = el("div", "col");
+        var head = el("div", "col-head");
+        var title = el("span", "col-title");
+        var sw = el("span", "swatch"); sw.style.background = COLORS[col.key];
+        title.appendChild(sw); title.appendChild(document.createTextNode(col.label));
+        head.appendChild(title);
+        head.appendChild(el("span", "col-count", items.length + ""));
+        c.appendChild(head);
+
+        var stack = el("div", "col-stack");
+        if (!items.length) {
+          stack.appendChild(el("div", "col-empty", "空"));
+        } else {
+          items.forEach(function (t) {
+            var tcard = el("div", "tcard");
+            var top = el("div", "tcard-top");
+            top.appendChild(el("span", "tcard-title", t.title || "未命名"));
+            if (t.type) {
+              var tag = TAGS[t.type] || TAGS.chore;
+              top.appendChild(el("span", "tag " + tag.cls, tag.label));
+            }
+            tcard.appendChild(top);
+            if (t.desc) tcard.appendChild(el("div", "tcard-desc", t.desc));
+            if (t.next) {
+              var nx = el("div", "tcard-next");
+              nx.appendChild(el("b", null, "下一步 "));
+              nx.appendChild(document.createTextNode(t.next));
+              tcard.appendChild(nx);
+            }
+            if (t.doneAt) {
+              var meta = el("div", "tcard-meta");
+              meta.appendChild(document.createTextNode("✓ " + t.doneAt));
+              tcard.appendChild(meta);
+            }
+            stack.appendChild(tcard);
+          });
+        }
+        c.appendChild(stack);
+        boardGrid.appendChild(c);
+      });
+
+      /* ── PRD ── */
+      var prdBody = document.getElementById("prdBody");
+      if (S.prd) {
+        if (S.prd.summary) prdBody.appendChild(el("p", "prd-summary", S.prd.summary));
+        var blocks = [
+          { key: "goals", label: "目标", cls: "goals" },
+          { key: "users", label: "用户 / 场景", cls: "" },
+          { key: "scopeIn", label: "范围内", cls: "" },
+          { key: "scopeOut", label: "范围外", cls: "scopeout" }
+        ];
+        blocks.forEach(function (b) {
+          var items = S.prd[b.key];
+          if (!items || !items.length) return;
+          var w = el("div", "prd-block " + b.cls);
+          w.appendChild(el("h4", null, b.label));
+          var u = el("ul");
+          items.forEach(function (it) { u.appendChild(el("li", null, it)); });
+          w.appendChild(u);
+          prdBody.appendChild(w);
+        });
+      }
+
+      /* ── 日志 ── */
+      var logBody = document.getElementById("logBody");
+      var logs = (S.log || []).slice().sort(function (a, b) {
+        var ka = (a.date || "") + " " + (a.time || "");
+        var kb = (b.date || "") + " " + (b.time || "");
+        return ka < kb ? 1 : ka > kb ? -1 : 0;
+      });
+      if (logs.length) {
+        logs.forEach(function (L) {
+          var t = TAGS[L.type] || TAGS.chore;
+          var entry = el("div", "entry");
+          entry.appendChild(el("span", "entry-dot " + t.cls));
+          var head = el("div", "entry-head");
+          head.appendChild(el("span", "entry-time", (L.date || "") + " " + (L.time || "")));
+          head.appendChild(el("span", "tag " + t.cls, t.label));
+          head.appendChild(el("span", "entry-title", L.title));
+          entry.appendChild(head);
+          if (L.body) entry.appendChild(el("div", "entry-body", L.body));
+          logBody.appendChild(entry);
+        });
+        /* 长日志折叠：只展开最近 5 条，其余收进「展开全部」 */
+        if (logs.length > 5) {
+          var entries = logBody.querySelectorAll(".entry");
+          for (var i = 5; i < entries.length; i++) entries[i].classList.add("is-hidden");
+          var more = el("button", "btn-more", "展开全部 " + logs.length + " 条日志");
+          more.addEventListener("click", function () {
+            var collapsed = !!logBody.querySelector(".entry.is-hidden");
+            if (collapsed) {
+              for (var j = 0; j < entries.length; j++) entries[j].classList.remove("is-hidden");
+              more.textContent = "收起，只看最近 5 条";
+            } else {
+              for (var j = 5; j < entries.length; j++) entries[j].classList.add("is-hidden");
+              more.textContent = "展开全部 " + logs.length + " 条日志";
+            }
+          });
+          logBody.appendChild(more);
+        }
+      } else {
+        logBody.innerHTML = '<div class="empty">还没有日志。</div>';
+      }
+
+      document.getElementById("renderAt").textContent =
+        "渲染于 " + new Date().toLocaleString("zh-CN", { hour12: false });
+    })();
+  </script>
+</body>
+</html>
